@@ -2,6 +2,7 @@
 -------------------
 
 - feat: :class:`.Median`, :class:`.Percentiles`, :class:`.Quartiles`, :class:`.Quintiles`, :class:`.Deciles` and :class:`.IQR` can be applied to :class:`.TimeDelta` columns, like :class:`.Sum` and :class:`.Mean`.
+- feat: :class:`.Variance`, :class:`.PopulationVariance`, :class:`.StDev` and :class:`.PopulationStDev` can be applied to :class:`.TimeDelta` columns. The variance aggregations return a :class:`.Number` of seconds squared (a squared :class:`datetime.timedelta` is not defined); the standard deviation aggregations return a :class:`datetime.timedelta`. The four aggregations now share a common base class so their validation, null handling and denominator semantics can not drift apart.
 - fix: :meth:`.Table.distinct` now deduplicates rows when ``key`` is a sequence of column names.
 - fix: :class:`.Rank` ranks null values last when ``reverse=True``.
 - fix: :meth:`.Table.from_fixed` reads the schema instead of the data file when ``schema_path`` is a file-like object.

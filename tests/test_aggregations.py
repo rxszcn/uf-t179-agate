@@ -279,6 +279,81 @@ class TestDateTimeAggregation(unittest.TestCase):
         IQR('test').validate(self.time_delta_table)
         self.assertEqual(IQR('test').run(self.time_delta_table), datetime.timedelta(seconds=10))
 
+    def test_variance_time_delta(self):
+        # Values 10s and 20s: mean 15s, sum of squared deviations 50s^2.
+        # The sample denominator (n - 1) matches the Number column behavior.
+        Variance('test').validate(self.time_delta_table)
+
+        self.assertIsInstance(Variance('test').get_aggregate_data_type(self.time_delta_table), Number)
+        self.assertEqual(Variance('test').run(self.time_delta_table), Decimal('50'))
+
+    def test_variance_time_delta_all_nulls(self):
+        self.assertIsNone(Variance('null').run(self.time_delta_table))
+
+    def test_variance_time_delta_with_nulls(self):
+        with self.assertWarns(NullCalculationWarning):
+            Variance('mixed').validate(self.time_delta_table)
+
+        warnings.simplefilter('ignore')
+
+        try:
+            # Only one non-null value: the population denominator leaves a
+            # zero variance, while the sample denominator divides by zero.
+            self.assertEqual(PopulationVariance('mixed').run(self.time_delta_table), Decimal('0'))
+        finally:
+            warnings.resetwarnings()
+
+    def test_population_variance_time_delta(self):
+        # Population denominator n, rather than the sample n - 1.
+        PopulationVariance('test').validate(self.time_delta_table)
+
+        self.assertIsInstance(
+            PopulationVariance('test').get_aggregate_data_type(self.time_delta_table), Number
+        )
+        self.assertEqual(PopulationVariance('test').run(self.time_delta_table), Decimal('25'))
+
+    def test_population_variance_time_delta_all_nulls(self):
+        self.assertIsNone(PopulationVariance('null').run(self.time_delta_table))
+
+    def test_stdev_time_delta(self):
+        # The standard deviation of a TimeDelta column is itself a TimeDelta,
+        # computed from the variance expressed in seconds.
+        StDev('test').validate(self.time_delta_table)
+
+        self.assertIsInstance(StDev('test').get_aggregate_data_type(self.time_delta_table), TimeDelta)
+        self.assertEqual(
+            StDev('test').run(self.time_delta_table),
+            datetime.timedelta(seconds=float(Decimal('50').sqrt()))
+        )
+
+    def test_stdev_time_delta_all_nulls(self):
+        self.assertIsNone(StDev('null').run(self.time_delta_table))
+
+    def test_population_stdev_time_delta(self):
+        PopulationStDev('test').validate(self.time_delta_table)
+
+        self.assertIsInstance(
+            PopulationStDev('test').get_aggregate_data_type(self.time_delta_table), TimeDelta
+        )
+        self.assertEqual(PopulationStDev('test').run(self.time_delta_table), datetime.timedelta(seconds=5))
+
+    def test_population_stdev_time_delta_all_nulls(self):
+        self.assertIsNone(PopulationStDev('null').run(self.time_delta_table))
+
+    def test_deviation_time_delta_invalid_type(self):
+        text_table = Table([['a'], ['b']], ['test'], [Text()])
+
+        for aggregation in (Variance, PopulationVariance, StDev, PopulationStDev):
+            with self.assertRaises(DataTypeError) as error:
+                aggregation('test').validate(text_table)
+
+            self.assertEqual(
+                str(error.exception),
+                '{} can only be applied to columns containing Number or TimeDelta data.'.format(
+                    aggregation.__name__
+                )
+            )
+
 
 class TestNumberAggregation(unittest.TestCase):
     def setUp(self):
